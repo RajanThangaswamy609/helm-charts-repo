@@ -1,0 +1,43 @@
+global:
+  jdbcUrl:
+  caperascustomdbsetup:
+    enabled: true
+  log4j:
+    override: 
+    configName: 
+ 
+caperas_custom_db_loader:
+  image: 
+    name: amexgcs-docker-snapshot-local.docker.fis.dev/amex/ras/dbloader/amexdev
+    tag: 3.7-amexras-test-3
+    pullPolicy: Always
+  javaArgs: '-Dlog4j.configurationFile=/usr/local/flyway/log4j2.xml'
+
+  spring:
+    configLocation: '/usr/local/config/'
+    profilesActive: 'oracle'
+    flyway:
+      target: 'latest'
+      locations: 'filesystem:/usr/local/etc/sql'
+      outOfOrder: true
+      baselineOnMigrate: true
+      flywayTable: 'schema_version'
+      ignoreMissingMigrations: true
+      encoding: 'UTF-8'
+      validateOnMigrate: false
+      fisExecuteUndo: false
+    database:
+      jdbcUrl:
+      secret:
+        name: caperas-db-secret
+
+  dbLoaderConfig:
+    name: cape-ras-custom-db-loader-spring-config
+    cleanSchema: 
+  resources: 
+    limits:
+      cpu: 1
+      memory: 2Gi
+  log4j:
+    override: false
+    configName: cape-ras-db-loader-log4j-config

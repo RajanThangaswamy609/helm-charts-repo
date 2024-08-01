@@ -1,0 +1,30 @@
+
+
+{{- $ldbidArg := index .Values "caperas-custom-db-setup" "spring" "placeholders" "ldbid" -}}
+{{- $ldbidnlArg := index .Values "caperas-custom-db-setup" "spring" "placeholders" "ldbidInl" -}}
+{{- $schNmeArg:= index .Values "caperas-custom-db-setup" "spring" "placeholders" "schName" -}}
+{{- $nfsPathArg:= index .Values "caperas-custom-db-setup" "spring" "placeholders" "nfsShare" -}}
+
+{{ if .Values.global.caperasdbsetup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cape-ras-custom-db-loader-spring-config
+data:  
+  application-oracle.yml: |-
+     logging:
+       level:
+         org.flywaydb.core: {{ or .Values.global.dbloader.logLevel "INFO" }}
+     spring:
+       flyway:
+         placeholders: 
+           LDBID_ARG: {{ $ldbidArg }}
+           LDBID_INL_ARG: {{ $ldbidnlArg }}
+           NFS_PATH_ARG: {{ $nfsPathArg }}
+           SCH_NME_ARG: {{ $schNmeArg }}
+           
+
+      
+---
+
+{{- end }}

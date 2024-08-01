@@ -1,0 +1,102 @@
+{{- $releaseName := .Release.Name -}}
+{{- $chartName := .Chart.Name -}}
+{{- $appName := include "app.name" . -}}
+{{- $appFullName := include "app.fullname" . -}}
+{{- $chartFullName := include "chart.fullname" . -}}
+{{- $labels := include "standard_labels" . -}}
+{{- $globalLog4j := .Values.global.log4j.override -}}
+{{- $globalLog4jName := .Values.global.log4j.configName -}}
+{{- $globalJdbcUrl := .Values.global.jdbcUrl -}}
+apiVersion: batch/v1
+kind: Job
+{{- with .Values.caperas_custom_db_loader }}
+metadata:
+  name: caperas_custom_db_loader
+  {{- $labels }}
+spec:
+  parallelism: {{ .parallelism | default 1 }}
+  completions: {{ .completions | default 1 }}
+  backoffLimit: {{ .backoffLimit | default 5 }}
+  template:
+    metadata:
+      labels:
+        app: "caperas_custom_db_loader"
+        release: {{ $releaseName }}
+    spec:
+      volumes:
+        - name: "cape-ras-db-loader-volume"
+          configMap:
+            name: {{ .dbLoaderConfig.name }}
+        {{- if or (.log4j.override) ($globalLog4j) }}
+        - name: "cape-ras-db-loader-log4j-config"
+          configMap:
+             name: {{ .log4j.override | ternary .log4j.configName $globalLog4jName }}
+        {{ end }}
+      restartPolicy: {{ .restartPolicy | default "OnFailure" }}
+      containers:
+      - name: {{ $chartName }}
+        image: "{{ .image.name }}:{{ .image.tag }}"
+        imagePullPolicy: Always
+        resources:
+{{ toYaml .resources | indent 10 }}
+        volumeMounts:
+          - name: "cape-ras-db-loader-volume"
+            mountPath: /usr/local/config/
+          {{- if or (.log4j.override) ($globalLog4j) }}
+          - name: "cape-ras-db-loader-log4j-config"
+            mountPath: /usr/local/flyway/conf
+          {{- end }}
+        env:
+          {{- if .dbLoaderConfig.cleanSchema }}
+          - name: CLEAN_SCHEMA
+            value: 'true'
+          {{- end }}
+          - name: JAVA_ARGS
+            value: {{ .javaArgs }}
+          {{- with .spring }}
+          - name: SPRING_CONFIG_ADDITIONAL-LOCATION
+            value: {{ .configLocation }}
+          - name: SPRING_PROFILES_ACTIVE
+            value: {{ .profilesActive }}
+          {{- end }}
+          {{- with .spring.flyway }}
+          - name: SPRING_FLYWAY_TARGET
+            value: {{ .target }}
+          - name: SPRING_FLYWAY_TABLE
+            value: {{ .flywayTable }}
+          - name: SPRING_FLYWAY_IGNORE_MISSING_MIGRATIONS
+            value: '{{ .ignoreMissingMigrations }}'
+          - name: SPRING_FLYWAY_OUT_OF_ORDER
+            value: '{{ .outOfOrder }}'
+          - name: SPRING_FLYWAY_BASELINE_ON_MIGRATE
+            value: '{{ .baselineOnMigrate }}'
+          - name: SPRING_FLYWAY_ENCODING
+            value: {{ .encoding }}
+          - name: SPRING_FLYWAY_LOCATIONS
+            value: {{ .locations }}
+          - name: SPRING_FLYWAY_VALIDATE_ON_MIGRATE
+            value: '{{ .validateOnMigrate }}'
+          - name: SPRING_FLYWAY_FIS_EXECUTE_UNDO
+            value: '{{ .fisExecuteUndo }}'
+          {{- end }}
+          {{- with .spring.database }}
+          - name: SPRING_DATASOURCE_JDBCURL
+            value: {{ or .jdbcUrl $globalJdbcUrl }}
+          - name: SPRING_DATASOURCE_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ .secret.name }}
+                key: username
+          - name: SPRING_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .secret.name }}
+                key: password
+          - name: SPRING_FLYWAY_LICENSE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .secret.name }}
+                key: flyway.license-key
+          {{- end }}
+{{- end }}
+
